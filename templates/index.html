@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Cam AI Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <h2 class="mb-4">🎥 Smart Cam AI Manager</h2>
+        
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="gallery-tab" data-bs-toggle="tab" data-bs-target="#gallery" type="button">Lịch sử Khuôn mặt</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="cam-tab" data-bs-toggle="tab" data-bs-target="#cameras" type="button">Cấu hình Camera</button>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3" id="myTabContent">
+            <!-- Gallery Tab -->
+            <div class="tab-pane fade show active" id="gallery">
+                <div class="row mb-3">
+                    <div class="col-md-4 mb-2">
+                        <input type="date" id="filterDate" class="form-control" onchange="loadFaces()">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <select id="filterCam" class="form-control" onchange="loadFaces()">
+                            <option value="">Tất cả Camera</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <button class="btn btn-primary w-100" onclick="loadFaces()">🔄 Làm mới ảnh</button>
+                    </div>
+                </div>
+                <div id="faceList" class="row g-3"></div>
+            </div>
+
+            <!-- Camera Config Tab -->
+            <div class="tab-pane fade" id="cameras">
+                <div class="card p-3 mb-3">
+                    <h5>Thêm Camera Mới</h5>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="text" id="newCamName" class="form-control" placeholder="Tên (VD: Cam Cổng)">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" id="newCamUrl" class="form-control" placeholder="RTSP URL (rtsp://...)">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-success w-100" onclick="addCamera()">➕ Thêm</button>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">Lưu ý: RTSP URL phải chính xác. Ví dụ: rtsp://admin:pass@192.168.1.10:554/...</small>
+                </div>
+                <h5>Danh sách Camera đang chạy</h5>
+                <ul class="list-group" id="camList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // SỬ DỤNG ĐƯỜNG DẪN TƯƠNG ĐỐI (QUAN TRỌNG CHO INGRESS)
+        const API_BASE = './api'; 
+
+        async function loadCameras() {
+            try {
+                const res = await fetch(`${API_BASE}/cameras`);
+                if (!res.ok) throw new Error("Không thể tải danh sách camera");
+                
+                const data = await res.json();
+                const list = document.getElementById('camList');
+                const select = document.getElementById('filterCam');
+                
+                list.innerHTML = '';
+                // Giữ lại option đầu tiên
+                select.innerHTML = '<option value="">Tất cả Camera</option>';
+
+                if (data.length === 0) {
+                    list.innerHTML = '<li class="list-group-item text-muted">Chưa có camera nào. Hãy thêm mới!</li>';
+                }
+
+                data.forEach(cam => {
+                    // cam: [id, name, rtsp_url, active]
+                    list.innerHTML += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div style="overflow: hidden; text-overflow: ellipsis;">
+                                <strong>${cam[1]}</strong><br>
+                                <small class="text-muted" style="font-size:0.8em">${cam[2]}</small>
+                            </div>
+                            <button class="btn btn-danger btn-sm ms-2" onclick="delCamera(${cam[0]})">Xóa</button>
+                        </li>
+                    `;
+                    select.innerHTML += `<option value="${cam[1]}">${cam[1]}</option>`;
+                });
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi tải camera: " + err.message);
+            }
+        }
+
+        async function addCamera() {
+            const name = document.getElementById('newCamName').value.trim();
+            const url = document.getElementById('newCamUrl').value.trim();
+            
+            if(!name || !url) return alert("Vui lòng nhập tên và đường dẫn RTSP!");
+            
+            try {
+                const res = await fetch(`${API_BASE}/cameras`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, url})
+                });
+                
+                if (!res.ok) throw new Error("Lỗi Server khi thêm camera");
+                
+                document.getElementById('newCamName').value = '';
+                document.getElementById('newCamUrl').value = '';
+                alert("Đã thêm camera thành công!");
+                loadCameras();
+            } catch (err) {
+                console.error(err);
+                alert("Không thể thêm camera: " + err.message);
+            }
+        }
+
+        async function delCamera(id) {
+            if(!confirm("Bạn chắc chắn muốn xóa camera này?")) return;
+            try {
+                await fetch(`${API_BASE}/cameras?id=${id}`, { method: 'DELETE' });
+                loadCameras();
+            } catch (err) {
+                alert("Lỗi khi xóa: " + err.message);
+            }
+        }
+
+        async function loadFaces() {
+            const date = document.getElementById('filterDate').value;
+            const cam = document.getElementById('filterCam').value;
+            let url = `${API_BASE}/faces?`;
+            if(date) url += `date=${date}&`;
+            if(cam) url += `cam=${cam}`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Không thể tải ảnh");
+                const data = await res.json();
+                const container = document.getElementById('faceList');
+                container.innerHTML = '';
+
+                if(data.length === 0) {
+                    container.innerHTML = '<p class="text-center text-muted col-12">Không tìm thấy khuôn mặt nào.</p>';
+                    return;
+                }
+
+                data.forEach(face => {
+                    // Sử dụng đường dẫn tương đối cho ảnh
+                    container.innerHTML += `
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <div class="card h-100 shadow-sm">
+                                <img src="./faces/${face[2]}" class="card-img-top face-img" alt="Face" style="height:150px; object-fit:cover;">
+                                <div class="card-body p-2 text-center">
+                                    <h6 class="card-title mb-0" style="font-size:0.9rem">${face[1]}</h6>
+                                    <small class="text-muted" style="font-size:0.75rem">${new Date(face[3]).toLocaleString('vi-VN')}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCameras();
+            loadFaces();
+        });
+    </script>
+</body>
+</html>
