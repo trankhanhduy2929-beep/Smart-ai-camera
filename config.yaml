@@ -1,0 +1,28 @@
+name: "Smart Cam AI Manager"
+version: "2.0.0"
+slug: "smart_cam_ai"
+description: "Quản lý Camera RTSP, phát hiện chuyển động và lưu trữ khuôn mặt qua giao diện Web (Không cần YAML)."
+url: "https://github.com/home-assistant/addons"
+startup: application
+arch:
+  - aarch64
+  - amd64
+  - armv7
+ports:
+  2929/tcp: 2929
+ingress: true
+ingress_port: 2929
+panel_icon: "mdi:cctv-off"
+panel_title: "Smart Cam AI"
+map:
+  - "share:rw"
+options:
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_user: "mqtt_user"
+  mqtt_password: "mqtt_password"
+schema:
+  mqtt_host: str
+  mqtt_port: int
+  mqtt_user: str
+  mqtt_password: str
