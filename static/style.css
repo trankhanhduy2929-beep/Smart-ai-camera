@@ -1,0 +1,11 @@
+/* File này giúp đảm bảo thư mục static tồn tại */
+body {
+    background-color: #f8f9fa;
+}
+.face-card {
+    transition: transform 0.2s;
+}
+.face-card:hover {
+    transform: scale(1.05);
+    cursor: pointer;
+}
